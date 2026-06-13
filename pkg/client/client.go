@@ -44,6 +44,7 @@ type Client struct {
 	readonly         bool
 	closed           bool
 	External         bool             `json:"external"`
+	Label            string           `json:"label,omitempty"`
 	History          []history.Record `json:"history"`
 	ConnectionString string           `json:"connection_string"`
 }

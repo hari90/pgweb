@@ -132,12 +132,18 @@ function showErrorBanner(text) {
   $("#error_banner").text(text).show();
 }
 
-// serverLabel builds a "host:port" string from a connection info response.
+// serverEndpoint builds a "host:port" string from a connection info response.
 // inet_server_addr can be empty for local/unix-socket connections.
-function serverLabel(resp) {
+function serverEndpoint(resp) {
   var host = resp.inet_server_addr || "localhost";
   var port = resp.inet_server_port;
   return port ? host + ":" + port : host;
+}
+
+// serverLabel returns the friendly connection name when one was provided
+// (e.g. via /open/<url>?name=Production), otherwise the host:port endpoint.
+function serverLabel(resp) {
+  return resp.connection_label || serverEndpoint(resp);
 }
 
 function buildSchemaSection(name, objects) {
@@ -1870,7 +1876,7 @@ $(document).ready(function() {
 
         $("#connection_window").hide();
         $("#current_database").text(resp.current_database);
-      $("#current_server").text(serverLabel(resp));
+      $("#current_server").text(serverLabel(resp)).attr("title", serverEndpoint(resp));
         $("#main").show();
       }
     });
@@ -1911,7 +1917,7 @@ $(document).ready(function() {
       loadLocalQueries();
 
       $("#current_database").text(resp.current_database);
-      $("#current_server").text(serverLabel(resp));
+      $("#current_server").text(serverLabel(resp)).attr("title", serverEndpoint(resp));
       $("#main").show();
 
       if (!appFeatures.session_lock) {

@@ -159,10 +159,17 @@ func ConnectWithURLPath(c *gin.Context) {
 	// The catch-all route param includes a leading slash.
 	url := strings.TrimPrefix(c.Param("url"), "/")
 
-	// Reattach any query string (e.g. ?sslmode=require) that the browser
-	// parsed off the pasted connection URL into the request query.
+	// The browser parses any query string off the pasted URL into the request
+	// query. Pull out the optional friendly name ("name") and reattach the
+	// remaining params (e.g. sslmode=require) to the connection URL.
+	var label string
 	if c.Request.URL.RawQuery != "" {
-		url = url + "?" + c.Request.URL.RawQuery
+		params := c.Request.URL.Query()
+		label = params.Get("name")
+		params.Del("name")
+		if encoded := params.Encode(); encoded != "" {
+			url = url + "?" + encoded
+		}
 	}
 	if url == "" {
 		badRequest(c, errURLRequired)
@@ -192,6 +199,7 @@ func ConnectWithURLPath(c *gin.Context) {
 		badRequest(c, err)
 		return
 	}
+	cl.Label = label
 
 	if err := cl.Test(); err != nil {
 		cl.Close()
@@ -556,6 +564,9 @@ func GetConnectionInfo(c *gin.Context) {
 
 	info := res.Format()[0]
 	info["session_lock"] = command.Opts.LockSession
+	if conn.Label != "" {
+		info["connection_label"] = conn.Label
+	}
 
 	successResponse(c, info)
 }
