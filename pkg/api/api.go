@@ -141,6 +141,79 @@ func ConnectWithBackend(c *gin.Context) {
 	c.Redirect(302, redirectURI)
 }
 
+// ConnectWithURLPath creates a new connection using a full database URL passed
+// directly in the request path, then redirects to the home page. This allows
+// opening a database by simply visiting a URL in the browser, for example:
+//
+//	http://localhost:8081/open/postgres://user:pass@host:5432/dbname
+func ConnectWithURLPath(c *gin.Context) {
+	if command.Opts.LockSession {
+		badRequest(c, errSessionLocked)
+		return
+	}
+	if command.Opts.BookmarksOnly {
+		badRequest(c, errNotPermitted)
+		return
+	}
+
+	// The catch-all route param includes a leading slash.
+	url := strings.TrimPrefix(c.Param("url"), "/")
+
+	// Reattach any query string (e.g. ?sslmode=require) that the browser
+	// parsed off the pasted connection URL into the request query.
+	if c.Request.URL.RawQuery != "" {
+		url = url + "?" + c.Request.URL.RawQuery
+	}
+	if url == "" {
+		badRequest(c, errURLRequired)
+		return
+	}
+
+	url, err := connection.FormatURL(command.Options{
+		URL:      url,
+		Passfile: command.Opts.Passfile,
+	})
+	if err != nil {
+		badRequest(c, err)
+		return
+	}
+
+	// Make the new session
+	sid, err := securerandom.Uuid()
+	if err != nil {
+		badRequest(c, err)
+		return
+	}
+	c.Request.Header.Add("x-session-id", sid)
+
+	// Connect to the database
+	cl, err := client.NewFromUrl(url, nil)
+	if err != nil {
+		badRequest(c, err)
+		return
+	}
+
+	if err := cl.Test(); err != nil {
+		cl.Close()
+		badRequest(c, err)
+		return
+	}
+
+	// Finalize session setup
+	_, err = cl.Info()
+	if err == nil {
+		err = setClient(c, cl)
+	}
+	if err != nil {
+		cl.Close()
+		badRequest(c, err)
+		return
+	}
+
+	redirectURI := fmt.Sprintf("/%s?session=%s", command.Opts.Prefix, sid)
+	c.Redirect(http.StatusFound, redirectURI)
+}
+
 // Connect creates a new client connection
 func Connect(c *gin.Context) {
 	if command.Opts.LockSession {

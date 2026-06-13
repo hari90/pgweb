@@ -717,6 +717,14 @@
   display: none;
 }
 
+.connection-actions .current-server {
+  color: #fff;
+  font-size: 24px;
+  margin-right: 10px;
+  opacity: 0.9;
+  vertical-align: middle;
+}
+
 #edit_connection, #close_connection {
   background: #79589f;
   color: #fff;
